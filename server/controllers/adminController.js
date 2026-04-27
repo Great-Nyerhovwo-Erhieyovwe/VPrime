@@ -69,7 +69,7 @@ export async function adminLogin(req, res) {
         console.log('❌ User is not admin, role:', user.role);
         return res.status(403).json({ message: 'Not authorized as admin' });
       }
-      const sub = (user._id || user.id)?.toString() || user.email;
+      const sub = user.id.toString();
       const token = jwt.sign({ sub, role: 'admin' }, process.env.JWT_SECRET || process.env.VITE_JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || process.env.VITE_JWT_EXPIRES_IN || '24h' });
       return res.json({ success: true, token, user: { id: sub, email: user.email, role: 'admin' } });
     }

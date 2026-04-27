@@ -17,7 +17,7 @@ const SupportPageContent: React.FC = () => {
     if (!document.getElementById("tawk-script")) {
       const s1 = document.createElement("script");
       s1.id = "tawk-script";
-      s1.src = "https://embed.tawk.to/twkid/default"; // updated later
+      s1.src = "https://embed.tawk.to/69bb34d189c36d1c389307ed/default"; // updated later
       s1.async = true;
       s1.charset = "UTF-8";
       s1.setAttribute("crossorigin", "*");

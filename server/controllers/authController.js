@@ -58,7 +58,7 @@ VertexPrime Capital Team`,
                             This code expires in 10 minutes. If you did not request this verification, you can safely ignore this message.
                         </p>
                         <p style="margin:24px 0 0; font-size:14px; line-height:1.8; color:#64748b;">
-                            Need help? Visit our <a href="https://vprimecapital.onrender.com/support" style="color:#0ea5e9; text-decoration:none;">support center</a>.
+                            Need help? Visit our <a href="https://t.me/vertexprime_support/" style="color:#0ea5e9; text-decoration:none;">support center</a>.
                         </p>
                     </div>
                     <div style="background:#f8fafc; padding:20px 24px; text-align:center; font-size:13px; color:#94a3b8;">
@@ -204,7 +204,7 @@ export async function login(req, res) {
         // Generate JWT token for frontend
         const jwt = await import('jsonwebtoken').then(m => m.default);
         const token = jwt.sign(
-            { sub: (user._id || user.id)?.toString() || user.email, role: user.role },
+            { sub: user.id.toString(), role: user.role },
             process.env.JWT_SECRET || process.env.VITE_JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN || process.env.VITE_JWT_EXPIRES_IN || '24h' }
         );
