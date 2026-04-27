@@ -1,7 +1,7 @@
 import axios from "axios";
 
-// Read API base URL from env, default to localhost:4000 for development
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+// Read API base URL from env, default to the deployed backend in production
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://vprimeapi.onrender.com" : "http://localhost:4000");
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

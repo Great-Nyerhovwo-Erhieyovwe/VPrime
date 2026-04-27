@@ -15,9 +15,9 @@ import { useState, useEffect } from 'react';
 
 /**
  * Backend URL configuration
- * Uses environment variable or defaults to localhost
+ * Uses environment variable or defaults to localhost in development.
  */
-const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://vprimeapi.onrender.com" : "http://localhost:4000");
 
 /**
  * User Profile Interface

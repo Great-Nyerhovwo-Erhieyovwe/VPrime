@@ -21,7 +21,7 @@ interface SettingsState {
   timezone: string;
 }
 
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
 
 const SettingsPageContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"profile" | "preferences">("preferences");

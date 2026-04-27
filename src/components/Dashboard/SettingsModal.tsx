@@ -59,8 +59,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsSaving(true);
 
     try {
+      const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
       const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/settings`, {
+      const response = await fetch(`${backendUrl}/api/user/settings`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

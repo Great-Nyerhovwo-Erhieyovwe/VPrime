@@ -8,7 +8,7 @@ import { SummaryCard } from '../ui/SummaryCard';
 import { GlassCard } from '../ui/GlassCard';
 import type { AdminStats } from '../../../types/admin';
 
-const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
 
 interface Transaction {
     id: string;

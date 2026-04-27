@@ -4,7 +4,7 @@ import { Modal } from "../../components/Modal/Modal";
 import { Loading } from "../../components/Loading/Loading";
 import { useAuthStatus } from "../../hooks/useAuth";
 
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
 
 const VerificationPageContent: React.FC = () => {
   // STATE

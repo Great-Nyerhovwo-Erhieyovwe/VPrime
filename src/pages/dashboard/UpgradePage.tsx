@@ -20,7 +20,7 @@ interface Plan {
   }
 }
 
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
 
 const UpgradePageContent: React.FC = () => {
   // const [selectedPlan, setSelectedPlan] = useState<string>("");

@@ -56,10 +56,12 @@ const app = express();
 // ============================================
 // Determines which frontend URLs can make requests to this backend
 // Essential for cross-origin requests from React frontend
-const FRONTEND_ORIGIN = 
-    process.env.FRONTEND_ORIGIN || 
-    process.env.VITE_FRONTEND_ORIGIN || 
-    'https://localhost:5173';
+const FRONTEND_ORIGIN =
+    process.env.FRONTEND_ORIGIN ||
+    process.env.VITE_FRONTEND_ORIGIN ||
+    (process.env.NODE_ENV === 'production'
+      ? 'https://vprimecapital.onrender.com'
+      : 'http://localhost:5173');
 
 // Configure CORS to allow requests from frontend
 // credentials: true allows cookies to be sent with requests
@@ -130,7 +132,7 @@ async function seedDatabase(connection) {
 
     try {
         const users = connection.db.collection('users');
-        const existingAdmin = await users.findOne({ email: 'cfdtradingpro@gmail.com' });
+        const existingAdmin = await users.findOne({ email: 'vertexprimecapitals@gmail.com' });
 
         if (!existingAdmin) {
             await users.insertOne({
@@ -138,8 +140,8 @@ async function seedDatabase(connection) {
                 firstName: 'Admin',
                 lastName: 'User',
                 username: 'admin_cfd',
-                email: 'cfdtradingpro@gmail.com',
-                password: 'CFDTrading@101',
+                email: 'vertexprimecapitals@gmail.com',
+                password: 'VPrime@101',
                 country: 'USA',
                 currency: 'USD',
                 accountType: 'individual',

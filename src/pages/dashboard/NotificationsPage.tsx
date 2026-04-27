@@ -11,7 +11,7 @@ interface DashboardNotification {
   icon: string;
 }
 
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
 
 const NotificationsPageContent: React.FC = () => {
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);

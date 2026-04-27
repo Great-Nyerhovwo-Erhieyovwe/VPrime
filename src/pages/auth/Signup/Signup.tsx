@@ -6,7 +6,7 @@ import { AiOutlineEye, AiOutlineEyeInvisible, AiOutlineLoading3Quarters, AiOutli
 import { HiXMark } from 'react-icons/hi2'
 // import { Footer } from '../../../components/Footer/Footer'
 
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
 
 const Signup = () => {
     // Form states

@@ -4,7 +4,7 @@ import type {
     VerificationRequest, AdminStats, Message, AdminTab
 } from '../types/admin';
 
-const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
 
 interface UseAdminReturn {
   // Data

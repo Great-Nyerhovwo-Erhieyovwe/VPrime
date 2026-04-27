@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { DashboardLayout } from "../../components/Dashboard/DashboardLayout";
 // import Loading from "../../components/Loading/Loading";
 
-const backendUrl = import.meta.env.VITE_API_URL;
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
 
 const SupportPageContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"faq" | "contact">("faq");
