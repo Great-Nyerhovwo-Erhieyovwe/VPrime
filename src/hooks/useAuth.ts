@@ -55,6 +55,8 @@ interface AuthStatus {
   isLoading: boolean;
 }
 
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
+
 export const useAuthStatus = (): AuthStatus => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
@@ -71,7 +73,7 @@ export const useAuthStatus = (): AuthStatus => {
       }
 
       try {
-        const response = await fetch('/api/dashboard/user', {
+        const response = await fetch(`${backendUrl}/api/dashboard/user`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const user = await response.json();

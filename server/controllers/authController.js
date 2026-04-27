@@ -25,8 +25,48 @@ async function sendOTPEmail(email, otp) {
     const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.VITE_EMAIL_FROM || 'vertexprimecapitals@gmail.com',
         to: email,
-        subject: 'VertexPrime Capital - Verification Code',
-        text: `Your verification code is: ${otp}`,
+        subject: 'VertexPrime Capital - Your verification code',
+        text: `Hello,
+
+Thanks for choosing VertexPrime Capital. Your verification code is ${otp}.
+
+Enter this code on the sign-up page to complete your registration. The code expires in 10 minutes.
+
+If you did not request this email, please ignore it.
+
+Best regards,
+VertexPrime Capital Team`,
+        html: `
+            <div style="font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#f8fafc; padding:32px;">
+                <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 24px 80px rgba(15,23,42,0.12);">
+                    <div style="background:#0f172a; padding:32px 24px; text-align:center;">
+                        <img src="https://vprimecapital.onrender.com/logo192.png" alt="VPrime Capital" width="64" height="64" style="display:block; margin:0 auto 16px;" />
+                        <h1 style="color:#ffffff; font-size:28px; margin:0;">Welcome to VertexPrime Capital</h1>
+                        <p style="color:#94a3b8; margin:12px 0 0; font-size:15px; line-height:1.6;">Secure your account with a one-time verification code.</p>
+                    </div>
+                    <div style="padding:32px 32px 24px; color:#0f172a;">
+                        <p style="margin:0 0 20px; font-size:16px; line-height:1.75; color:#475569;">Hi there,</p>
+                        <p style="margin:0 0 24px; font-size:16px; line-height:1.75; color:#475569;">
+                            Thanks for signing up with VertexPrime Capital. Use the code below to verify your email address and complete your registration.
+                        </p>
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:28px 24px; text-align:center; margin-bottom:32px;">
+                            <p style="margin:0 0 12px; font-size:14px; color:#64748b; letter-spacing:0.08em; text-transform:uppercase;">Your verification code</p>
+                            <p style="margin:0; font-size:32px; letter-spacing:0.2em; font-weight:700; color:#0f172a;">${otp}</p>
+                        </div>
+                        <a href="https://vprimecapital.onrender.com/login" style="display:inline-block; background:#0ea5e9; color:#ffffff; text-decoration:none; padding:14px 26px; border-radius:999px; font-size:16px; font-weight:600;">Verify my account</a>
+                        <p style="margin:28px 0 0; font-size:14px; line-height:1.8; color:#64748b;">
+                            This code expires in 10 minutes. If you did not request this verification, you can safely ignore this message.
+                        </p>
+                        <p style="margin:24px 0 0; font-size:14px; line-height:1.8; color:#64748b;">
+                            Need help? Visit our <a href="https://vprimecapital.onrender.com/support" style="color:#0ea5e9; text-decoration:none;">support center</a>.
+                        </p>
+                    </div>
+                    <div style="background:#f8fafc; padding:20px 24px; text-align:center; font-size:13px; color:#94a3b8;">
+                        <p style="margin:0;">VertexPrime Capital • Secure trading and global markets</p>
+                    </div>
+                </div>
+            </div>
+        `,
     };
     try {
         await transporter.sendMail(mailOptions);

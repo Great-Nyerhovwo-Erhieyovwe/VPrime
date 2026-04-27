@@ -78,11 +78,11 @@ export const useAdmin = (): UseAdminReturn => {
     try {
       switch (tab) {
         case 'overview':
-          const statsData = await fetchWithAuth('/admin/summary');
+          const statsData = await fetchWithAuth('/api/admin/summary');
           setStats(statsData);
           break;
         case 'users':
-          const usersData = await fetchWithAuth('/admin/users');
+          const usersData = await fetchWithAuth('/api/admin/users');
           setUsers(Array.isArray(usersData) ? usersData : (usersData.users || []));
           break;
         case 'deposits':

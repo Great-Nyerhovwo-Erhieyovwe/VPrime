@@ -28,6 +28,8 @@ import type { AdminTab, User, Deposit, Withdrawal, Trade, VerificationRequest, U
 import { useDashboard } from "../../hooks/useDashboard";
 import { useNavigate } from "react-router-dom";
 
+const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://vprimeapi.onrender.com' : 'http://localhost:4000');
+
 // Helper function for fetch requests
 const fetchJson = async (url: string, options: RequestInit = {}) => {
     const token = localStorage.getItem("token");
@@ -40,7 +42,9 @@ const fetchJson = async (url: string, options: RequestInit = {}) => {
         headers.Authorization = `Bearer ${token}`;
     }
 
-    const res = await fetch(url, {
+    const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`;
+
+    const res = await fetch(fullUrl, {
         headers,
         credentials: "include",
         cache: "no-store",
