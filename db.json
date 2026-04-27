@@ -1,0 +1,295 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "benjaminjmcmahan@gmail.com",
+      "password": "Benji@101"
+    },
+    {
+      "email": "test_1771457936159@example.com",
+      "password": "$2b$10$6RAAFBKYFo/xa9/483JETuttqd4CNvgj4F0t7HRg9b1NiyxbW.7GG",
+      "firstName": "Test",
+      "lastName": "User",
+      "username": "testuser_1771457938340",
+      "country": "US",
+      "currency": "USD",
+      "accountType": "trader",
+      "dateOfBirth": "1990-01-01",
+      "role": "trader",
+      "emailVerified": true,
+      "createdAt": "2026-02-18T23:38:58.614Z",
+      "balanceUsd": 125430.5,
+      "roi": 18.5,
+      "_id": "69964d92ac7325e0ad6dc26a"
+    },
+    {
+      "email": "jane_1771458499099@example.com",
+      "password": "$2b$10$I8Yk.xrgF31lr4b/j.fqfOJk0a9EpVDGgpXFRs5DzKUrBTZ2Ro80S",
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "username": "jane_1771458499099",
+      "country": "United States",
+      "currency": "USD",
+      "accountType": "individual",
+      "dateOfBirth": "1995-05-15",
+      "role": "trader",
+      "emailVerified": true,
+      "createdAt": "2026-02-18T23:48:22.479Z",
+      "balanceUsd": 85750.25,
+      "roi": 12.3,
+      "_id": "69964fc6ac7325e0ad6dc26b"
+    },
+    {
+      "email": "bigsilverfx001@gmail.com",
+      "password": "$2b$10$AL2AkRdve7aDeN80MUW/keFqDQKZtgDTkT7443.pAt2xgAYvTgxuu",
+      "firstName": "Silver",
+      "lastName": "FX",
+      "username": "realsilver001",
+      "country": "New Zealand",
+      "currency": "NZD",
+      "accountType": "individual",
+      "dateOfBirth": "2005-06-04",
+      "role": "trader",
+      "emailVerified": true,
+      "createdAt": "2026-02-19T00:03:18.254Z",
+      "balanceUsd": 15200.75,
+      "roi": 25.8,
+      "_id": "69965346ac7325e0ad6dc26c"
+    },
+    {
+      "email": "dewittlehner256@gmail.com",
+      "password": "$2b$10$VWYlyPFnHHCNeOGnvj/Oy.JJ/U6S/h1r8q7uA3X1MdPTNt4MQ8Zoi",
+      "firstName": "Dewitt",
+      "lastName": "Lehner",
+      "username": "dewittlehner256",
+      "country": "Germany",
+      "currency": "EUR",
+      "accountType": "corporate",
+      "dateOfBirth": "1988-11-06",
+      "role": "trader",
+      "emailVerified": true,
+      "createdAt": "2026-02-19T20:55:45.891Z",
+      "balanceUsd": 1000,
+      "roi": 89.6,
+      "_id": "699778d2ee475c405fa1ed0d"
+    },
+    {
+      "email": "mark@gmail.com",
+      "password": "$2b$10$APbap5Ar1jfYEBkvc.6ZhujOLL5TrdYTjOjplNsQefhiwbOiV7ZB2",
+      "firstName": "Mark",
+      "lastName": "Jeff",
+      "username": "mark199",
+      "country": "United States",
+      "currency": "USD",
+      "accountType": "corporate",
+      "dateOfBirth": "1987-09-11",
+      "role": "trader",
+      "emailVerified": true,
+      "createdAt": "2026-02-24T20:30:34.189Z",
+      "balanceUsd": 0,
+      "roi": 0,
+      "_id": "1771965034191"
+    },
+    {
+      "email": "johndoe101@gmail.com",
+      "password": "$2b$10$8ByKIn2Itxddrf3Z.zYZhOoQvxpSQb.NwAhqbcCOfMNKPQYfO5Cwi",
+      "firstName": "John",
+      "lastName": "Doe",
+      "username": "johndoe101",
+      "country": "United Kingdom",
+      "currency": "GBP",
+      "accountType": "individual",
+      "dateOfBirth": "1989-04-06",
+      "role": "trader",
+      "emailVerified": true,
+      "createdAt": "2026-03-05T12:31:05.954Z",
+      "balanceUsd": 0,
+      "roi": 0,
+      "_id": "1772713865955"
+    }
+  ],
+  "portfolios": [
+    {
+      "_id": "portfolio_69964d92ac7325e0ad6dc26a",
+      "userId": "69964d92ac7325e0ad6dc26a",
+      "totalValue": 125430.5,
+      "openPositions": [
+        {
+          "id": "pos_btc_1",
+          "symbol": "BTC",
+          "amount": 1.5,
+          "purchasePrice": 42500,
+          "currentPrice": 45200,
+          "value": 67800,
+          "change": 2700,
+          "changePercent": 6.35,
+          "entryDate": "2026-02-01T10:30:00Z"
+        },
+        {
+          "id": "pos_eth_1",
+          "symbol": "ETH",
+          "amount": 25,
+          "purchasePrice": 2450,
+          "currentPrice": 2680,
+          "value": 67000,
+          "change": 5750,
+          "changePercent": 9.39,
+          "entryDate": "2026-02-05T14:20:00Z"
+        },
+        {
+          "id": "pos_ada_1",
+          "symbol": "ADA",
+          "amount": 5000,
+          "purchasePrice": 0.95,
+          "currentPrice": 1.05,
+          "value": 5250,
+          "change": 500,
+          "changePercent": 10.53,
+          "entryDate": "2026-02-10T09:15:00Z"
+        }
+      ],
+      "totalCost": 115680.5,
+      "totalGain": 9750,
+      "updatedAt": "2026-02-19T12:00:00Z"
+    },
+    {
+      "_id": "portfolio_69964fc6ac7325e0ad6dc26b",
+      "userId": "69964fc6ac7325e0ad6dc26b",
+      "totalValue": 85750.25,
+      "openPositions": [
+        {
+          "id": "pos_eth_2",
+          "symbol": "ETH",
+          "amount": 15,
+          "purchasePrice": 2400,
+          "currentPrice": 2680,
+          "value": 40200,
+          "change": 4200,
+          "changePercent": 11.67,
+          "entryDate": "2026-02-03T11:45:00Z"
+        },
+        {
+          "id": "pos_sol_1",
+          "symbol": "SOL",
+          "amount": 100,
+          "purchasePrice": 155,
+          "currentPrice": 185,
+          "value": 18500,
+          "change": 3000,
+          "changePercent": 19.35,
+          "entryDate": "2026-02-08T15:30:00Z"
+        }
+      ],
+      "totalCost": 75650.25,
+      "totalGain": 10100,
+      "updatedAt": "2026-02-19T12:00:00Z"
+    }
+  ],
+  "transactions": [],
+  "notifications": [
+    {
+      "_id": "notif_69964d92ac7325e0ad6dc26a_1",
+      "userId": "69964d92ac7325e0ad6dc26a",
+      "type": "success",
+      "title": "Trade Executed",
+      "message": "Your BTC buy order has been completed successfully",
+      "timestamp": "2026-02-19T08:30:00Z",
+      "read": false
+    },
+    {
+      "_id": "notif_69964d92ac7325e0ad6dc26a_2",
+      "userId": "69964d92ac7325e0ad6dc26a",
+      "type": "alert",
+      "title": "Price Alert",
+      "message": "ETH has reached your target price of $2,500",
+      "timestamp": "2026-02-19T07:15:00Z",
+      "read": false
+    },
+    {
+      "_id": "notif_69964d92ac7325e0ad6dc26a_3",
+      "userId": "69964d92ac7325e0ad6dc26a",
+      "type": "info",
+      "title": "Account Update",
+      "message": "Your account has been verified successfully",
+      "timestamp": "2026-02-18T23:38:58.614Z",
+      "read": true
+    }
+  ],
+  "stats": [
+    {
+      "_id": "stats_69964d92ac7325e0ad6dc26a",
+      "userId": "69964d92ac7325e0ad6dc26a",
+      "totalBalance": 125430.5,
+      "activeTrades": 8,
+      "monthlyReturn": 8.3,
+      "weeklyReturn": 2.5,
+      "yearlyReturn": 18.5,
+      "totalPositions": 12,
+      "totalProfit": 9750,
+      "winRate": 73.5,
+      "updatedAt": "2026-02-19T12:00:00Z"
+    },
+    {
+      "_id": "stats_69964fc6ac7325e0ad6dc26b",
+      "userId": "69964fc6ac7325e0ad6dc26b",
+      "totalBalance": 85750.25,
+      "activeTrades": 5,
+      "monthlyReturn": 6.5,
+      "weeklyReturn": 1.8,
+      "yearlyReturn": 12.3,
+      "totalPositions": 8,
+      "totalProfit": 5890,
+      "winRate": 68.2,
+      "updatedAt": "2026-02-19T12:00:00Z"
+    }
+  ],
+  "deposits": [],
+  "withdrawals": [
+    {
+      "_id": "withdrawal_69964d92ac7325e0ad6dc26a_1",
+      "userId": "69964d92ac7325e0ad6dc26a",
+      "amount": 1200,
+      "currency": "USD",
+      "status": "pending",
+      "method": "bank_transfer",
+      "destinationAddress": "",
+      "bankReference": "REF123456",
+      "adminNotes": "",
+      "requestedAt": "2026-02-25T08:00:00Z",
+      "createdAt": "2026-02-25T08:00:00Z"
+    }
+  ],
+  "trades": [
+    {
+      "_id": "trade_69964fc6ac7325e0ad6dc26b_1",
+      "userId": "69964fc6ac7325e0ad6dc26b",
+      "symbol": "ETH/USD",
+      "type": "buy",
+      "status": "active",
+      "entryPrice": 2400,
+      "exitPrice": null,
+      "quantity": 10,
+      "leverage": 2,
+      "profitLoss": null,
+      "profitLossPercent": null,
+      "result": null,
+      "openedAt": "2026-02-20T10:30:00Z",
+      "createdAt": "2026-02-20T10:30:00Z"
+    }
+  ],
+  "upgrades": [],
+  "verifications": [],
+  "settings": [],
+  "messages": [
+    {
+      "userId": "699778d2ee475c405fa1ed0d",
+      "message": "your account is due for upgrade",
+      "type": "direct",
+      "from": "admin",
+      "fromEmail": "vertexprimecapitals@gmail.com",
+      "sentAt": "2026-02-23T03:21:30.790Z",
+      "read": false,
+      "_id": "699bc7bb1bb7eaac2b3c08ca"
+    }
+  ]
+}

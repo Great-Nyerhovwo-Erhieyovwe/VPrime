@@ -1,0 +1,30 @@
+/* Dashboard Progress Bar Styles */
+.progress-bar {
+  width: 100%;
+  background-color: #e5e7eb;
+  border-radius: 9999px;
+  height: 0.5rem;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 0.5rem;
+  border-radius: 9999px;
+  transition: width 0.5s ease-in-out;
+}
+
+.progress-fill.bg-yellow-500 {
+  background-color: #eab308;
+}
+
+.progress-fill.bg-blue-500 {
+  background-color: #3b82f6;
+}
+
+.progress-fill.bg-purple-500 {
+  background-color: #a855f7;
+}
+
+.progress-fill.bg-green-500 {
+  background-color: #22c55e;
+}

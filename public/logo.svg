@@ -1,0 +1,13 @@
+<svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logo-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00d8ff" />
+      <stop offset="100%" stop-color="#1c82ff" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="64" height="64" rx="18" fill="#0A0F33" />
+  <path d="M18 18L34 18L44 32L34 46L18 46L26 32L18 18Z" fill="url(#logo-gradient)" />
+  <path d="M26 22L34 22L42 32L34 42L26 42L32 32L26 22Z" fill="white" opacity="0.25" />
+  <text x="80" y="28" fill="white" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">CFD</text>
+  <text x="80" y="50" fill="#00d8ff" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Trading Pro</text>
+</svg>
