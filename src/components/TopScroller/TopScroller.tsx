@@ -1,10 +1,10 @@
 const messages = [
-    "Welcome to VPrime Capital |",
-    "Earn up to $5000 daily profits |",
-    "Instant deposits & fast withdrawals |",
-    "Your funds are 100% secured |",
-    "Trade Forex, Crypto, Indices & Stocks seamlessly |",
-    "Trusted by traders worldwide |",
+    "Welcome to VPrime Capital",
+    "Earn up to $5000 daily profits",
+    "Instant deposits & fast withdrawals",
+    "Your funds are 100% secured",
+    "Trade Forex, Crypto, Indices & Stocks seamlessly",
+    "Trusted by traders worldwide",
 ]
 
 export default function TopScroller() {

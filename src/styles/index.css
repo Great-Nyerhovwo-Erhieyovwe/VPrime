@@ -33,6 +33,6 @@ body,
 }
 
 .animate-scroll {
-  animation: scroll 10s linear infinite;
+  animation: scroll 13s linear infinite;
   will-change: transform;
 }
