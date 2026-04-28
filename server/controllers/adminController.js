@@ -1,4 +1,4 @@
-import { getDb, query } from "../utils/db.js";
+import { getDb } from "../utils/db.js";
 import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
 
@@ -312,17 +312,10 @@ export async function createPlan(req, res) {
     const planDoc = {
       id: planId,
       ...payload,
-      createdAt: new Date().toISOString()
+      createdAt: new Date()
     };
 
-    const keys = Object.keys(planDoc);
-    const values = Object.values(planDoc);
-    const placeholders = keys.map(() => "?").join(", ");
-
-    const [result] = await db.query(
-      `INSERT INTO upgrade_plans (${keys.join(", ")}) VALUES (${placeholders})`,
-      values
-    );
+    const result = await db.collection('upgrade_plans').insertOne(planDoc);
 
     return res.json({ success: true, result: { insertedId: planId, _id: planId } });
   } catch (e) {
@@ -342,16 +335,12 @@ export async function updatePlan(req, res) {
     const { id } = req.params;
     const updates = req.body || {};
 
-    const updateKeys = Object.keys(updates);
-    const updateValues = Object.values(updates);
-    const setClause = updateKeys.map(k => `${k} = ?`).join(", ");
-
-    const [result] = await db.query(
-      `UPDATE upgrade_plans SET ${setClause} WHERE id = ?`,
-      [...updateValues, id]
+    const result = await db.collection('upgrade_plans').updateOne(
+      { $or: [{ id: id }, { _id: id }] },
+      { $set: updates }
     );
 
-    return res.json({ success: true, result: { matchedCount: result.affectedRows, modifiedCount: result.changedRows } });
+    return res.json({ success: true, result: { matchedCount: result.matchedCount, modifiedCount: result.modifiedCount } });
   } catch (e) {
     console.error('Update plan error:', e);
     return res.status(500).json({ message: 'Server error' });
@@ -367,8 +356,8 @@ export async function deletePlan(req, res) {
     }
 
     const { id } = req.params;
-    const [result] = await db.query('DELETE FROM upgrade_plans WHERE id = ?', [id]);
-    return res.json({ success: true, result: { deletedCount: result.affectedRows } });
+    const result = await db.collection('upgrade_plans').deleteOne({ $or: [{ id: id }, { _id: id }] });
+    return res.json({ success: true, result: { deletedCount: result.deletedCount } });
   } catch (e) {
     console.error('Delete plan error:', e);
     return res.status(500).json({ message: 'Server error' });
@@ -383,7 +372,7 @@ export async function listUpgrades(req, res) {
       return res.status(500).json({ message: 'Database not connected' });
     }
 
-    const [upgradeRows] = await db.query('SELECT * FROM upgrades');
+    const upgradeRows = await db.collection('upgrades').find({}).toArray();
     // Transform to match expected format
     const upgrades = upgradeRows.map(u => ({
       id: u.id?.toString(),
@@ -428,8 +417,7 @@ export async function updateUpgrade(req, res) {
     }
 
     // Fetch upgrade to get userId
-    const [upgradeRows] = await db.query('SELECT * FROM upgrades WHERE id = ? LIMIT 1', [id]);
-    const upgrade = upgradeRows[0];
+    const upgrade = await db.collection('upgrades').findOne({ $or: [{ id: id }, { _id: id }] });
     if (!upgrade) {
       console.warn(`UpdateUpgrade: Upgrade request not found for id=${id}`);
       return res.status(404).json({ message: 'Upgrade request not found' });
@@ -439,9 +427,9 @@ export async function updateUpgrade(req, res) {
 
     // Update the upgrade record
     const now = new Date();
-    await db.query(
-      `UPDATE upgrades SET status = ?, adminNotes = ?, reviewedAt = ? WHERE id = ?`,
-      [dbStatus, adminNotes || '', now, id]
+    await db.collection('upgrades').updateOne(
+      { $or: [{ id: id }, { _id: id }] },
+      { $set: { status: dbStatus, adminNotes: adminNotes || '', reviewedAt: now } }
     );
 
     // If approved, update user upgrade level and withdrawal limits
@@ -462,9 +450,9 @@ export async function updateUpgrade(req, res) {
       
       console.log(`UpdateUpgrade: Setting withdrawal limits for level=${level}`, limits);
       
-      await db.query(
-        'UPDATE users SET upgradeLevel = ?, withdrawal_min_usd = ?, withdrawal_max_usd = ? WHERE id = ?',
-        [level, limits.min, limits.max, upgrade.userId]
+      await db.collection('users').updateOne(
+        { $or: [{ id: upgrade.userId }, { _id: upgrade.userId }] },
+        { $set: { upgradeLevel: level, withdrawal_min_usd: limits.min, withdrawal_max_usd: limits.max } }
       );
     }
 
@@ -485,15 +473,19 @@ export async function getDepositSettings(req, res) {
       return res.status(500).json({ message: 'Database not connected' });
     }
 
-    const [rows] = await db.query('SELECT * FROM deposit_settings WHERE id = 1 LIMIT 1');
-    let settings = rows[0];
+    let settings = await db.collection('deposit_settings').findOne({ id: 1 });
 
     // If no settings exist, create default ones
     if (!settings) {
       console.log('🔧 Creating default deposit settings...');
-      await db.query(
-        'INSERT INTO deposit_settings (id, bank_account_number, bank_account_holder, bank_routing_number, bank_name, crypto_address) VALUES (1, "", "", "", "", "")'
-      );
+      await db.collection('deposit_settings').insertOne({
+        id: 1,
+        bank_account_number: '',
+        bank_account_holder: '',
+        bank_routing_number: '',
+        bank_name: '',
+        crypto_address: '',
+      });
       settings = {
         id: 1,
         bank_account_number: '',
@@ -541,13 +533,9 @@ export async function updateDepositSettings(req, res) {
       crypto_address: crypto?.address,
     };
 
-    const updateKeys = Object.keys(updates);
-    const updateValues = Object.values(updates);
-    const setClause = updateKeys.map(k => `${k} = ?`).join(", ");
-
-    const [result] = await db.query(
-      `UPDATE deposit_settings SET ${setClause} WHERE id = 1`,
-      updateValues
+    await db.collection('deposit_settings').updateOne(
+      { id: 1 },
+      { $set: updates }
     );
 
     return res.json({ success: true });
