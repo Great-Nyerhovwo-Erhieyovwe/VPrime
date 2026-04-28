@@ -20,7 +20,7 @@
 
 // const db = require('../utils/db');
 // import db from '../utils/db.js';
-import { query } from '../utils/db.js';
+import { getDb } from '../utils/db.js';
 
 // ============================================================================
 // DEPOSIT REQUEST CONTROLLER
@@ -73,19 +73,21 @@ async function createDeposit(req, res) {
     }
 
     // Fetch user to get current balance
-    const users = await query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
-    const user = users[0];
-    // const user = users.find((u) => u._id === userId);
+    const db = getDb();
+    const user = await db.collection('users').findOne({ $or: [{ id: userId }, { _id: userId }] });
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     // insert deposit request
-    const result = await query(
-      'INSERT INTO deposits (userId, amount, paymentMethod, status, requestedAt) VALUES (?, ?, ?, ?, ?)',
-      [userId, amount, paymentMethod, 'pending', new Date()]
-    );
+    const result = await db.collection('deposits').insertOne({
+      userId,
+      amount,
+      paymentMethod,
+      status: 'pending',
+      requestedAt: new Date()
+    });
 
     // // Create new deposit request (MariaDB)
     // const deposit = {
@@ -113,7 +115,7 @@ async function createDeposit(req, res) {
     res.json({
       success: true,
       message: 'Deposit request submitted successfully. Awaiting admin approval.',
-      requestId: result.insertId,
+      requestId: result.insertedId.toString(),
       status: 'pending',
     });
   } catch (error) {
@@ -133,11 +135,11 @@ async function getUserDeposits(req, res) {
     const { id: userId } = req.user;
 
     // Read all deposits
-    const deposits = await query('SELECT * FROM deposits WHERE userId = ?', [userId]);
-    // if (!deposits) deposits = [];
+    const db = getDb();
+    const deposits = await db.collection('deposits').find({ userId }).toArray();
 
-    const users = await query('SELECT currency FROM users WHERE id = ? LIMIT 1', [userId]);
-    const currency = users[0]?.currency || 'USD';
+    const user = await db.collection('users').findOne({ $or: [{ id: userId }, { _id: userId }] });
+    const currency = user?.currency || 'USD';
 
     const formatted = deposits.map((d) => ({
       ...d,
@@ -209,9 +211,8 @@ async function createWithdrawal(req, res) {
     const { amount, withdrawalMethod, destinationAddress } = req.body;
 
     // Fetch user to check balance and account type
-    const users = await query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
-    const user = users[0];
-    // const user = users.find((u) => u._id === userId);
+    const db = getDb();
+    const user = await db.collection('users').findOne({ $or: [{ id: userId }, { _id: userId }] });
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -250,12 +251,13 @@ async function createWithdrawal(req, res) {
     }
 
     const frequencyAgo = new Date(Date.now() - frequencyDays * 24 * 60 * 60 * 1000);
-    const recentWithdrawal = await query(
-      'SELECT COUNT(*) as count FROM withdrawals WHERE userId = ? AND status = ? AND requestedAt > ?',
-      [userId, 'approved', frequencyAgo]
-    );
+    const recentWithdrawal = await db.collection('withdrawals').countDocuments({
+      userId,
+      status: 'approved',
+      requestedAt: { $gt: frequencyAgo }
+    });
 
-    if (recentWithdrawal[0].count > 0) {
+    if (recentWithdrawal > 0) {
       return res.status(400).json({
         success: false,
         message: `You can only make one withdrawal every ${frequencyDays} day${frequencyDays === 1 ? '' : 's'}. Please try again later.`,
@@ -263,10 +265,14 @@ async function createWithdrawal(req, res) {
     }
 
     // Insert withdrawal
-    const result = await query(
-      'INSERT INTO withdrawals (userId, amount, withdrawalMethod, destinationAddress, status, requestedAt) VALUES (?, ?, ?, ?, ?, ?)',
-      [userId, amount, withdrawalMethod, destinationAddress || null, 'pending', new Date()]
-    );
+    const result = await db.collection('withdrawals').insertOne({
+      userId,
+      amount,
+      withdrawalMethod,
+      destinationAddress: destinationAddress || null,
+      status: 'pending',
+      requestedAt: new Date()
+    });
 
     // // Create withdrawal request
     // const withdrawal = {
@@ -289,7 +295,7 @@ async function createWithdrawal(req, res) {
     res.json({
       success: true,
       message: 'Withdrawal request submitted successfully. Awaiting admin approval.',
-      requestId: result.insertId,
+      requestId: result.insertedId.toString(),
       amount: formatCurrency(amount, user.currency),
       status: 'pending',
       withdrawalMinUsd: minUsd,
@@ -309,9 +315,10 @@ async function createWithdrawal(req, res) {
 async function getUserWithdrawals(req, res) {
   try {
     const { id: userId } = req.user;
-    const withdrawals = await query('SELECT * FROM withdrawals WHERE userId = ?', [userId]);
-    const users = await query('SELECT currency FROM users WHERE id = ? LIMIT 1', [userId]);
-    const currency = users[0]?.currency || 'USD';
+    const db = getDb();
+    const withdrawals = await db.collection('withdrawals').find({ userId }).toArray();
+    const user = await db.collection('users').findOne({ $or: [{ id: userId }, { _id: userId }] });
+    const currency = user?.currency || 'USD';
 
     const formatted = withdrawals.map((w) => ({
       ...w,
@@ -353,8 +360,8 @@ async function createTrade(req, res) {
     const { amount, asset, type, leverage } = req.body;
 
     // Fetch user
-    const users = await query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
-    const user = users[0];
+    const db = getDb();
+    const user = await db.collection('users').findOne({ $or: [{ id: userId }, { _id: userId }] });
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -378,15 +385,21 @@ async function createTrade(req, res) {
     }
 
     // Deduct balance
-    await query('UPDATE users SET balanceUsd = balanceUsd - ? WHERE id = ?', [amount, userId]);
+    await db.collection('users').updateOne(
+      { $or: [{ id: userId }, { _id: userId }] },
+      { $inc: { balanceUsd: -amount } }
+    );
 
     // insert trade
-    const result = await query(
-      `INSERT INTO trades
-      (userId, amount, asset, type, leverage, status, requestedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`, 
-      [userId, amount, asset, type, leverage || 1, 'active', new Date()]
-    );
+    const result = await db.collection('trades').insertOne({
+      userId,
+      amount,
+      asset,
+      type,
+      leverage: leverage || 1,
+      status: 'active',
+      requestedAt: new Date()
+    });
 
     // // Create trade request
     // const trade = {
@@ -421,7 +434,7 @@ async function createTrade(req, res) {
     res.json({
       success: true,
       message: 'Trade executed successfully.',
-      tradeId: result.insertId,
+      tradeId: result.insertedId.toString(),
       deductedAmount: formatCurrency(amount, user.currency),
       newBalance: formatCurrency(user.balanceUsd - amount, user.currency),
     });
@@ -438,13 +451,11 @@ async function getUserTrades(req, res) {
   try {
     const { id: userId } = req.user;
 
-    const trades = await query('SELECT * FROM trades WHERE userId = ?', [userId]);
-    const users = await query('SELECT currency FROM users WHERE id = ?', [userId]);
-    // if (!trades) trades = [];
+    const db = getDb();
+    const trades = await db.collection('trades').find({ userId }).toArray();
+    const user = await db.collection('users').findOne({ $or: [{ id: userId }, { _id: userId }] });
 
-    // const userTrades = trades.filter((t) => t.userId === userId);
-
-    const currency = users[0]?.currency || 'USD';
+    const currency = user?.currency || 'USD';
 
     const formatted = trades.map((t) => ({
       ...t,
@@ -483,8 +494,8 @@ async function createUpgrade(req, res) {
     const { upgradeLevel, targetLevel, currentLevel, amount } = req.body;
     
     // Check if user is frozen prior to fetching user
-    const users = await query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
-    const user = users[0];
+    const db = getDb();
+    const user = await db.collection('users').findOne({ $or: [{ id: userId }, { _id: userId }] });
 
     if (!user) {
       return res.status(404).json({
@@ -516,27 +527,27 @@ async function createUpgrade(req, res) {
     let upgradeAmount = amount || 0;
     if (!amount) {
       try {
-        const [plans] = await query(
-          'SELECT priceMonthly FROM upgrade_plans WHERE name = ? LIMIT 1',
-          [level]
-        );
-        upgradeAmount = plans[0]?.priceMonthly || 99.99;
+        const plan = await db.collection('plans').findOne({ name: level });
+        upgradeAmount = plan?.priceMonthly || 99.99;
       } catch (e) {
         console.warn('Could not fetch plan price:', e.message);
         upgradeAmount = 99.99;
       }
     }
 
-    const result = await query(
-      `INSERT INTO upgrades (userId, upgradeLevel, amount, status, requestedAt, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [userId, level, upgradeAmount, 'pending', new Date(), new Date()]
-    );
+    const result = await db.collection('upgrades').insertOne({
+      userId,
+      upgradeLevel: level,
+      amount: upgradeAmount,
+      status: 'pending',
+      requestedAt: new Date(),
+      createdAt: new Date()
+    });
 
     res.json({
       success: true,
       message: 'Upgrade request submitted successfully. Awaiting admin approval.',
-      requestId: result.insertId,
+      requestId: result.insertedId.toString(),
       status: 'pending',
     });
   } catch (error) {
@@ -552,8 +563,8 @@ async function getUserUpgrades(req, res) {
   try {
     const { id: userId } = req.user;
 
-    const upgrades = await query('SELECT * FROM upgrades WHERE userId = ?', [userId]);
-    // if (!upgrades) upgrades = [];
+    const db = getDb();
+    const upgrades = await db.collection('upgrades').find({ userId }).toArray();
 
     // const userUpgrades = upgrades.filter((u) => u.userId === userId);
 
@@ -591,8 +602,8 @@ async function createVerification(req, res) {
     const { documentType, documentNumber, expiryDate } = req.body;
 
     // Check if user is frozen
-    const users = await query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
-    const user = users[0];
+    const db = getDb();
+    const user = await db.collection('users').findOne({ $or: [{ id: userId }, { _id: userId }] });
 
     if (!user) {
       return res.status(404).json({
@@ -616,17 +627,19 @@ async function createVerification(req, res) {
       });
     }
 
-    const result = await query(
-      `INSERT INTO verifications 
-      (userId, documentType, documentNumber, expiryDate, status, requestedAt)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [userId, documentType, documentNumber, expiryDate || null, 'pending', new Date()]
-    );
+    const result = await db.collection('verifications').insertOne({
+      userId,
+      documentType,
+      documentNumber,
+      expiryDate: expiryDate || null,
+      status: 'pending',
+      requestedAt: new Date()
+    });
 
     res.json({
       success: true,
       message: 'Verification request submitted successfully. Awaiting admin approval.',
-      requestId: result.insertId,
+      requestId: result.insertedId.toString(),
       status: 'pending',
     });
   } catch (error) {
@@ -642,8 +655,8 @@ async function getUserVerifications(req, res) {
   try {
     const { id: userId } = req.user;
 
-    const verifications = await query('SELECT * FROM verifications WHERE userId = ?', [userId]);
-    // if (!verifications) verifications = [];
+    const db = getDb();
+    const verifications = await db.collection('verifications').find({ userId }).toArray();
 
     // const userVerifications = verifications.filter((v) => v.userId === userId);
 
@@ -680,27 +693,26 @@ async function updateSettings(req, res) {
     const { darkMode, notifications, language, currency, timezone } = req.body;
 
     // Fetch user
-    const result = await query(
-      `UPDATE users
-      SET darkMode = ?, notifications = ?, language = ?, currency = ?, timezone = ?, settingsUpdatedAt = ?
-      WHERE id = ?`,
-      [
-        darkMode !== undefined ? darkMode : null,
-        notifications !== undefined ? notifications : null,
-        language || null,
-        currency || null,
-        timezone || null,
-        new Date(),
-        userId
-      ]
+    const db = getDb();
+    const result = await db.collection('users').updateOne(
+      { $or: [{ id: userId }, { _id: userId }] },
+      {
+        $set: {
+          ...(darkMode !== undefined && { darkMode }),
+          ...(notifications !== undefined && { notifications }),
+          ...(language && { language }),
+          ...(currency && { currency }),
+          ...(timezone && { timezone }),
+          settingsUpdatedAt: new Date()
+        }
+      }
     );
 
-    if (result.affectedRows === 0) {
+    if (result.matchedCount === 0) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const updatedUserRows = await query('SELECT * FROM users WHERE id = ?', [userId]);
-    const updatedUser = updatedUserRows[0];
+    const updatedUser = await db.collection('users').findOne({ $or: [{ id: userId }, { _id: userId }] });
 
     // if (userIndex === -1) {
     //   return res.status(404).json({ success: false, message: 'User not found' });
