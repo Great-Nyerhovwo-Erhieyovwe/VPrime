@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { query } from '../utils/db.js';
+import { getDb } from '../utils/db.js';
 
 
 // Simple in-memory OTP store (replace with Redis in production)
@@ -82,9 +82,10 @@ export async function sendOtp(req, res) {
         const { email } = req.body;
         if (!email) return res.status(400).json({ message: 'Missing email' });
         // check if user exists
-        const existing = await query("SELECT * FROM users WHERE email = ? LIMIT 1", [email]);
+        const db = getDb();
+        const existing = await db.collection('users').findOne({ email });
 
-        if (existing && existing[0]) {
+        if (existing) {
             return res.status(400).json({
                 message: 'Email already registered'
             });
@@ -130,32 +131,26 @@ export async function verifyOtp(req, res) {
         if (stored.otp !== otp) return res.status(400).json({ message: 'Invalid OTP' });
 
         // insert new user with plain password (insecure; per user request)
-        const result = await query(
-            `INSERT INTO users (email, password, firstName, lastName, username, country, currency, accountType, dateOfBirth, role, emailVerified, createdAt, balanceUsd, roi)
-    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+        const db = getDb();
+        const result = await db.collection('users').insertOne({
             email,
-            userData.password,
-            userData.firstName || '',
-            userData.lastName || '',
-            userData.username || '',
-            userData.country || '',
-            userData.currency || 'USD',
-            userData.accountType || 'individual',
-            userData.dateOfBirth || null,
-            'trader',
-            true,
-            new Date(),
-            0,
-            0
-        ]
-        )
-
-        // insert new created user
-        // const insertedId = result.insertId
-
+            password: userData.password,
+            firstName: userData.firstName || '',
+            lastName: userData.lastName || '',
+            username: userData.username || '',
+            country: userData.country || '',
+            currency: userData.currency || 'USD',
+            accountType: userData.accountType || 'individual',
+            dateOfBirth: userData.dateOfBirth || null,
+            role: 'trader',
+            emailVerified: true,
+            createdAt: new Date(),
+            balanceUsd: 0,
+            roi: 0
+        });
 
         otpStore.delete(email);
-        return res.json({ success: true, id: result.insertId });
+        return res.json({ success: true, id: result.insertedId.toString() });
     } catch (e) {
         console.error('❌ VerifyOtp error:', e.message || e);
         console.error('❌ Stack:', e.stack);
@@ -173,17 +168,14 @@ export async function login(req, res) {
         }
 
         console.log('🔍 Querying database for user:', email);
-        const users = await query(
-            'SELECT * FROM users WHERE email = ?',
-            [email]
-        );
+        const db = getDb();
+        const user = await db.collection('users').findOne({ email });
 
-        if (users.length === 0) {
+        if (!user) {
             console.log('❌ User not found:', email);
             return res.status(401).json({ message: 'Invalid credentials' });
         }
-        const user = users[0];
-        console.log('👤 User found:', { id: user.id, email: user.email, role: user.role });
+        console.log('👤 User found:', { id: user.id || user._id, email: user.email, role: user.role });
 
         if (password !== user.password) {
             console.log('❌ Password mismatch for user:', email);
@@ -204,7 +196,7 @@ export async function login(req, res) {
         // Generate JWT token for frontend
         const jwt = await import('jsonwebtoken').then(m => m.default);
         const token = jwt.sign(
-            { sub: user.id.toString(), role: user.role },
+            { sub: (user.id || user._id).toString(), role: user.role },
             process.env.JWT_SECRET || process.env.VITE_JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN || process.env.VITE_JWT_EXPIRES_IN || '24h' }
         );
@@ -214,7 +206,7 @@ export async function login(req, res) {
             success: true,
             token,
             user: {
-                id: user.id?.toString(),
+                id: (user.id || user._id).toString(),
                 email: user.email,
                 role: user.role,
                 firstName: user.firstName,
@@ -236,16 +228,17 @@ export async function me(req, res) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        const users = await query(
-            'SELECT id, email, role, balanceUsd, roi, firstName, lastName FROM users WHERE id = ?',
-            [userId]
+        const db = getDb();
+        const user = await db.collection('users').findOne(
+            { $or: [{ id: userId }, { _id: userId }] },
+            { projection: { id: 1, email: 1, role: 1, balanceUsd: 1, roi: 1, firstName: 1, lastName: 1 } }
         );
 
-        if (users.length === 0) {
+        if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        return res.json(users[0]);
+        return res.json(user);
     } catch (err) {
         console.error('❌ Me error:', err.message || err);
         console.error('❌ Stack:', err.stack);

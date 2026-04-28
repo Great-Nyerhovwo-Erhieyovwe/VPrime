@@ -33,7 +33,7 @@ import express from 'express';              // Web framework
 import cors from 'cors';                    // Cross-Origin Resource Sharing
 import helmet from 'helmet';                // Security headers
 import routes from './routes/index.js';     // API routes
-import { connectDB } from './utils/db.js'; // MongoDB utilities
+import { connectDb } from './utils/db.js'; // MongoDB utilities
 import jwt from 'jsonwebtoken';             // JWT token handling (optional, for reference)
 import path from 'path';
 import fs from 'fs';
@@ -251,7 +251,7 @@ async function seedDatabase(connection) {
 async function start() {
     const PORT = process.env.PORT || 4000;
 
-    const db = await connectDB();
+    const db = await connectDb(process.env.DATABASE_URL);
     console.log('DB connection result:', !!db);
 
     if (!db) {

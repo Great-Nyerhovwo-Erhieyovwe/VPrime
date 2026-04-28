@@ -15,7 +15,7 @@
  */
 
 import jwt from "jsonwebtoken";
-import { query } from "../utils/db.js";
+import { getDb } from "../utils/db.js";
 
 /**
  * Authenticate Middleware Function
@@ -76,12 +76,10 @@ export async function authenticate(req, res, next) {
 
         const userId = payload.sub;
 
-        const rows = await query(
-            'SELECT * FROM users WHERE id = ? LIMIT 1',
-            [userId]
-        );
-
-        let user = rows[0];
+        const db = getDb();
+        const user = await db.collection('users').findOne({
+            $or: [{ id: userId }, { _id: userId }]
+        });
 
         if (!user) {
             console.warn(`User with ID ${userId} not found in database`);

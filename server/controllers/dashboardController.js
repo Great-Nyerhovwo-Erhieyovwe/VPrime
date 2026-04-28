@@ -11,7 +11,7 @@
  */
 
 // import { provider } from "../services/dataProvider.js";
-import { getDb, query } from "../utils/db.js";
+import { getDb } from "../utils/db.js";
 import jwt from 'jsonwebtoken';
 
 /**
@@ -30,14 +30,18 @@ export async function getUser(req, res) {
             return res.status(500).json({ message: 'Database not connected' });
         }
 
-        const userId = req.user.id;
+        const userId = req.user.id || req.user._id;
 
-        const [rows] = await db.query(
-            'SELECT id, email, firstName, lastName, username, country, currency, accountType, emailVerified, createdAt, role, upgradeLevel, withdrawal_min_usd, withdrawal_max_usd FROM users WHERE id = ?',
-            [userId]
+        const user = await db.collection('users').findOne(
+            { $or: [{ id: userId }, { _id: userId }] },
+            {
+                projection: {
+                    id: 1, email: 1, firstName: 1, lastName: 1, username: 1, country: 1,
+                    currency: 1, accountType: 1, emailVerified: 1, createdAt: 1, role: 1,
+                    upgradeLevel: 1, withdrawal_min_usd: 1, withdrawal_max_usd: 1
+                }
+            }
         );
-
-        const user = rows[0];
 
         if (!user) {
             return res.status(401).json({ message: 'User not found' });
@@ -82,21 +86,20 @@ export async function getPortfolio(req, res) {
             return res.status(500).json({ message: 'Database not connected' });
         }
 
-        const userId = req.user.id;
-        const [rows] = await db.query('SELECT balanceUsd, roi, upgradeLevel FROM users WHERE id = ?', [userId]);
-
-        const user = rows[0];
+        const userId = req.user.id || req.user._id;
+        const user = await db.collection('users').findOne(
+            { $or: [{ id: userId }, { _id: userId }] },
+            { projection: { balanceUsd: 1, roi: 1, upgradeLevel: 1 } }
+        );
 
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const [activeTradesRows] = await db.query(
-            'SELECT COUNT(*) AS activeTrades FROM trades WHERE userId = ? AND status = "active"',
-            [userId]
-        );
-
-        const activeTradesCount = activeTradesRows[0].activeTrades || 0;
+        const activeTradesCount = await db.collection('trades').countDocuments({
+            userId: userId,
+            status: 'active'
+        });
 
         return res.json({
             totalBalance: user.balanceUsd || 0,
@@ -133,17 +136,15 @@ export async function getTransactions(req, res) {
         const limit = parseInt(req.query.limit) || 50;
         const offset = parseInt(req.query.offset) || 0;
 
-        const userId = req.user.id;
-        const [transactions] = await db.query(`SELECT * FROM transactions WHERE userId = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?`, 
-            [userId, limit, offset]
-        );
+        const userId = req.user.id || req.user._id;
+        const transactions = await db.collection('transactions')
+            .find({ userId: userId })
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .skip(offset)
+            .toArray();
 
-        const [countRows] = await db.query(
-            'SELECT COUNT(*) AS total FROM transactions WHERE userId = ?',
-            [userId]
-        );
-
-        const total = countRows[0].total;
+        const total = await db.collection('transactions').countDocuments({ userId: userId });
 
         return res.json({
             transactions,

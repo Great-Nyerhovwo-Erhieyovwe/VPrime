@@ -12,24 +12,27 @@ export async function adminSummary(req, res) {
     }
 
     // Get total users count
-    const [totalUsersResult] = await db.query('SELECT COUNT(*) as count FROM users');
-    const totalUsers = totalUsersResult[0].count;
+    const totalUsers = await db.collection('users').countDocuments();
 
     // Get verified users count
-    const [verifiedUsersResult] = await db.query('SELECT COUNT(*) as count FROM users WHERE emailVerified = 1');
-    const verifiedUsers = verifiedUsersResult[0].count;
+    const verifiedUsers = await db.collection('users').countDocuments({ emailVerified: true });
 
     // Get active users count (users with balance > 0)
-    const [activeUsersResult] = await db.query('SELECT COUNT(*) as count FROM users WHERE balanceUsd > 0');
-    const activeUsers = activeUsersResult[0].count;
+    const activeUsers = await db.collection('users').countDocuments({ balanceUsd: { $gt: 0 } });
 
     // Get total approved deposits
-    const [totalDepositsResult] = await db.query('SELECT COALESCE(SUM(amount), 0) as total FROM deposits WHERE status = "approved"');
-    const totalDeposits = Number(totalDepositsResult[0].total);
+    const depositResult = await db.collection('deposits').aggregate([
+      { $match: { status: 'approved' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]).toArray();
+    const totalDeposits = depositResult.length > 0 ? Number(depositResult[0].total) : 0;
 
     // Get total approved withdrawals
-    const [totalWithdrawalsResult] = await db.query('SELECT COALESCE(SUM(amount), 0) as total FROM withdrawals WHERE status = "approved"');
-    const totalWithdrawals = Number(totalWithdrawalsResult[0].total);
+    const withdrawalResult = await db.collection('withdrawals').aggregate([
+      { $match: { status: 'approved' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]).toArray();
+    const totalWithdrawals = withdrawalResult.length > 0 ? Number(withdrawalResult[0].total) : 0;
 
     return res.json({ totalUsers, verifiedUsers, activeUsers, totalDeposits, totalWithdrawals });
   } catch (e) {
@@ -56,11 +59,10 @@ export async function adminLogin(req, res) {
 
     // Try to find user in database
     console.log('🔍 Checking database for admin user:', email);
-    const [userRows] = await db.query('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
-    const user = userRows[0];
+    const user = await db.collection('users').findOne({ email });
 
     if (user) {
-      console.log('👤 User found in database:', { id: user.id, email: user.email, role: user.role });
+      console.log('👤 User found in database:', { id: user.id || user._id, email: user.email, role: user.role });
       if (password !== user.password) {
         console.log('❌ Password mismatch for user:', email);
         return res.status(401).json({ message: 'Invalid credentials' });
@@ -69,7 +71,7 @@ export async function adminLogin(req, res) {
         console.log('❌ User is not admin, role:', user.role);
         return res.status(403).json({ message: 'Not authorized as admin' });
       }
-      const sub = user.id.toString();
+      const sub = (user.id || user._id).toString();
       const token = jwt.sign({ sub, role: 'admin' }, process.env.JWT_SECRET || process.env.VITE_JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || process.env.VITE_JWT_EXPIRES_IN || '24h' });
       return res.json({ success: true, token, user: { id: sub, email: user.email, role: 'admin' } });
     }
@@ -95,12 +97,11 @@ export async function getAdminProfile(req, res) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const [rows] = await db.query(
-      'SELECT id, email, firstName, lastName, role, createdAt FROM users WHERE email = ? LIMIT 1',
-      [adminEmail]
+    const profile = await db.collection('users').findOne(
+      { email: adminEmail },
+      { projection: { id: 1, email: 1, firstName: 1, lastName: 1, role: 1, createdAt: 1 } }
     );
 
-    const profile = rows[0];
     if (!profile) {
       return res.status(404).json({ message: 'Admin profile not found' });
     }
@@ -139,24 +140,20 @@ export async function updateAdminProfile(req, res) {
       return res.status(400).json({ message: 'No valid fields to update' });
     }
 
-    const updateKeys = Object.keys(safeUpdates);
-    const updateValues = Object.values(safeUpdates);
-    const setClause = updateKeys.map((key) => `${key} = ?`).join(', ');
-
-    await db.query(
-      `UPDATE users SET ${setClause} WHERE email = ?`,
-      [...updateValues, adminEmail]
+    await db.collection('users').updateOne(
+      { email: adminEmail },
+      { $set: safeUpdates }
     );
 
     // If email was updated, use the new email for the SELECT
     const selectEmail = safeUpdates.email || adminEmail;
 
-    const [rows] = await db.query(
-      'SELECT id, email, firstName, lastName, role, createdAt FROM users WHERE email = ? LIMIT 1',
-      [selectEmail]
+    const updatedProfile = await db.collection('users').findOne(
+      { email: selectEmail },
+      { projection: { id: 1, email: 1, firstName: 1, lastName: 1, role: 1, createdAt: 1 } }
     );
 
-    return res.json(rows[0] || {});
+    return res.json(updatedProfile || {});
   } catch (e) {
     console.error('Update admin profile error:', e);
     return res.status(500).json({ message: 'Server error' });
@@ -175,9 +172,9 @@ export async function listUsers(req, res) {
     }
 
     console.log('🔍 Querying all users from database...');
-    const [userRows] = await db.query('SELECT * FROM users');
-    console.log('✅ Retrieved', userRows.length, 'users from database');
-    return res.json(userRows);
+    const users = await db.collection('users').find({}).toArray();
+    console.log('✅ Retrieved', users.length, 'users from database');
+    return res.json(users);
   } catch (e) {
     console.error('List users error:', e);
     return res.status(500).json({ message: 'Server error' });
@@ -196,7 +193,7 @@ export async function createUser(req, res) {
     if (!payload.email || !payload.password) return res.status(400).json({ message: 'Missing fields' });
 
     // Generate ID if not provided
-    const userId = payload.id || randomUUID();
+    const userId = payload.id || require('crypto').randomUUID();
 
     // store plain password (insecure; per user request)
     const userDoc = {
@@ -209,19 +206,12 @@ export async function createUser(req, res) {
       withdrawal_min_usd: payload.withdrawal_min_usd || 500,
       withdrawal_max_usd: payload.withdrawal_max_usd || 5000,
       upgradeLevel: payload.upgradeLevel || 'free',
-      createdAt: new Date().toISOString()
+      createdAt: new Date()
     };
 
-    const keys = Object.keys(userDoc);
-    const values = Object.values(userDoc);
-    const placeholders = keys.map(() => "?").join(", ");
+    const result = await db.collection('users').insertOne(userDoc);
 
-    const [result] = await db.query(
-      `INSERT INTO users (${keys.join(", ")}) VALUES (${placeholders})`,
-      values
-    );
-
-    return res.json({ success: true, result: { insertedId: userId, _id: userId } });
+    return res.json({ success: true, result: { insertedId: result.insertedId.toString(), _id: result.insertedId.toString() } });
   } catch (e) {
     console.error('Create user error:', e);
     return res.status(500).json({ message: 'Server error' });
@@ -262,16 +252,12 @@ export async function updateUser(req, res) {
       return res.status(400).json({ message: 'No valid fields to update' });
     }
 
-    const updateKeys = Object.keys(safeUpdates);
-    const updateValues = Object.values(safeUpdates);
-    const setClause = updateKeys.map(k => `${k} = ?`).join(", ");
-
-    const [result] = await db.query(
-      `UPDATE users SET ${setClause} WHERE id = ?`,
-      [...updateValues, id]
+    const result = await db.collection('users').updateOne(
+      { $or: [{ id: id }, { _id: id }] },
+      { $set: safeUpdates }
     );
 
-    return res.json({ success: true, result: { matchedCount: result.affectedRows, modifiedCount: result.changedRows } });
+    return res.json({ success: true, result: { matchedCount: result.matchedCount, modifiedCount: result.modifiedCount } });
   } catch (e) {
     console.error('Update user error:', e);
     return res.status(500).json({ message: 'Server error' });
@@ -287,8 +273,8 @@ export async function deleteUser(req, res) {
     }
 
     const { id } = req.params;
-    const [result] = await db.query('DELETE FROM users WHERE id = ?', [id]);
-    return res.json({ success: true, result: { deletedCount: result.affectedRows } });
+    const result = await db.collection('users').deleteOne({ $or: [{ id: id }, { _id: id }] });
+    return res.json({ success: true, result: { deletedCount: result.deletedCount } });
   } catch (e) {
     console.error('Delete user error:', e);
     return res.status(500).json({ message: 'Server error' });
@@ -304,8 +290,8 @@ export async function listPlans(req, res) {
       return res.status(500).json({ message: 'Database not connected' });
     }
 
-    const [planRows] = await db.query('SELECT * FROM upgrade_plans');
-    return res.json(planRows);
+    const plans = await db.collection('upgrade_plans').find({}).toArray();
+    return res.json(plans);
   } catch (e) {
     console.error('List plans error:', e);
     return res.status(500).json({ message: 'Server error' });
