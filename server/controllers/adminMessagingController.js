@@ -26,7 +26,7 @@ export async function listTickets(req, res) {
             return res.status(500).json({ message: 'Database not connected' });
         }
 
-        const [ticketRows] = await db.query('SELECT * FROM support_tickets ORDER BY createdAt DESC');
+        const ticketRows = await db.collection('support_tickets').find({}).sort({ createdAt: -1 }).toArray();
         return res.json(ticketRows);
     } catch (e) {
         console.error('List tickets error:', e);
@@ -42,7 +42,7 @@ export async function listMessages(req, res) {
             return res.status(500).json({ message: 'Database not connected' });
         }
 
-        const [messageRows] = await db.query('SELECT * FROM messages ORDER BY createdAt DESC');
+        const messageRows = await db.collection('messages').find({}).sort({ createdAt: -1 }).toArray();
         const transformed = messageRows.map((row) => ({
             ...row,
             message: row.content,
@@ -85,38 +85,33 @@ export async function updateTicket(req, res) {
         }
 
         // Fetch ticket
-        const [ticketRows] = await db.query('SELECT * FROM support_tickets WHERE id = ? LIMIT 1', [id]);
-        const ticket = ticketRows[0];
+        const ticket = await db.collection('support_tickets').findOne({ _id: id });
         if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
         // Build new replies array if adding a reply
-        let replies = ticket.replies ? JSON.parse(ticket.replies) : [];
+        let replies = ticket.replies || [];
         if (reply) {
             replies.push({
                 from: 'admin',
                 message: reply,
                 adminEmail: req.user?.email || 'admin',
-                timestamp: new Date().toISOString(),
+                timestamp: new Date(),
             });
         }
 
         const updates = {
             status,
-            replies: JSON.stringify(replies),
-            updatedAt: new Date().toISOString(),
+            replies,
+            updatedAt: new Date(),
         };
 
         if (status === 'resolved' || status === 'closed') {
-            updates.resolvedAt = new Date().toISOString();
+            updates.resolvedAt = new Date();
         }
 
-        const updateKeys = Object.keys(updates);
-        const updateValues = Object.values(updates);
-        const setClause = updateKeys.map(k => `${k} = ?`).join(", ");
-
-        await db.query(
-            `UPDATE support_tickets SET ${setClause} WHERE id = ?`,
-            [...updateValues, id]
+        await db.collection('support_tickets').updateOne(
+            { _id: id },
+            { $set: updates }
         );
 
         return res.json({ success: true });
@@ -181,22 +176,14 @@ export async function sendMessage(req, res) {
             subject,
             status: 'pending',
             isRead: false,
-            createdAt: new Date().toISOString(),
+            createdAt: new Date(),
         };
 
-        const keys = Object.keys(messageDoc);
-        const values = Object.values(messageDoc);
-        const placeholders = keys.map(() => "?").join(", ");
-
-        const query = `INSERT INTO messages (${keys.join(", ")}) VALUES (${placeholders})`;
-        
         try {
-            await db.query(query, values);
+            await db.collection('messages').insertOne(messageDoc);
             console.log('✅ Message inserted successfully:', { id: messageId, recipientId, type });
         } catch (insertError) {
-            console.error('SQL Insert Error:', insertError.message);
-            console.error('Query:', query);
-            console.error('Values:', values);
+            console.error('Insert Error:', insertError.message);
             throw insertError;
         }
 
@@ -222,15 +209,14 @@ export async function updateMessage(req, res) {
             return res.status(400).json({ message: 'Invalid status' });
         }
 
-        const [messageRows] = await db.query('SELECT * FROM messages WHERE id = ? LIMIT 1', [id]);
-        const existingMessage = messageRows[0];
+        const existingMessage = await db.collection('messages').findOne({ _id: id });
         if (!existingMessage) {
             return res.status(404).json({ message: 'Message not found' });
         }
 
-        await db.query(
-            'UPDATE messages SET status = ?, completedAt = ? WHERE id = ?',
-            [status, status === 'completed' ? new Date().toISOString() : null, id]
+        await db.collection('messages').updateOne(
+            { _id: id },
+            { $set: { status, completedAt: status === 'completed' ? new Date() : null } }
         );
 
         return res.json({ success: true });

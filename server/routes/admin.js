@@ -57,19 +57,24 @@ router.patch('/transactions/:id', async (req, res) => {
     const db = getDb();
     if (!db) return res.status(500).json({ message: 'Database not connected' });
 
-    // Check withdrawals table first (since withdrawals should subtract, not add)
-    const [withdrawalRows] = await db.query('SELECT id FROM withdrawals WHERE id = ? LIMIT 1', [req.params.id]);
-    if (withdrawalRows.length > 0) {
-        return withdrawalsCtrl.updateWithdrawal(req, res);
-    }
+    try {
+        // Check withdrawals collection first (since withdrawals should subtract, not add)
+        const withdrawal = await db.collection('withdrawals').findOne({ _id: req.params.id });
+        if (withdrawal) {
+            return withdrawalsCtrl.updateWithdrawal(req, res);
+        }
 
-    // Then check deposits table
-    const [depositRows] = await db.query('SELECT id FROM deposits WHERE id = ? LIMIT 1', [req.params.id]);
-    if (depositRows.length > 0) {
-        return depositsCtrl.updateDeposit(req, res);
-    }
+        // Then check deposits collection
+        const deposit = await db.collection('deposits').findOne({ _id: req.params.id });
+        if (deposit) {
+            return depositsCtrl.updateDeposit(req, res);
+        }
 
-    return res.status(404).json({ message: 'Transaction not found' });
+        return res.status(404).json({ message: 'Transaction not found' });
+    } catch (error) {
+        console.error('Transaction update error:', error);
+        return res.status(500).json({ message: 'Server error' });
+    }
 });
 
 /**
@@ -159,8 +164,8 @@ router.get('/debug/tables', async (req, res) => {
 
         for (const table of tables) {
             try {
-                const [rows] = await db.query(`SELECT COUNT(*) as count FROM ${table}`);
-                results[table] = rows[0]?.count || 0;
+                const count = await db.collection(table).countDocuments({});
+                results[table] = count;
             } catch (e) {
                 results[table] = `Error: ${e.message.substring(0, 50)}`;
             }

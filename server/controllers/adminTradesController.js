@@ -22,16 +22,11 @@ export async function listTrades(req, res) {
             return res.status(500).json({ message: 'Database not connected' });
         }
 
-        const [rows] = await db.query(`
-            SELECT t.*, u.currency 
-            FROM trades t 
-            LEFT JOIN users u ON t.userId = u.id 
-            ORDER BY t.requestedAt DESC
-        `);
-        console.log(`ListTrades: Found ${rows.length} trades from database`);
+        const trades = await db.collection('trades').find({}).sort({ requestedAt: -1 }).toArray();
+        console.log(`ListTrades: Found ${trades.length} trades from database`);
 
         // Transform database rows to match Trade interface
-        const transformedTrades = rows.map(row => {
+        const transformedTrades = trades.map(row => {
             // For CFD trading, amount represents the leveraged position value
             // entryPrice = amount / leverage (assuming quantity = 1 for simplicity)
             const entryPrice = row.leverage > 0 ? parseFloat(row.amount) / row.leverage : parseFloat(row.amount);
@@ -54,7 +49,7 @@ export async function listTrades(req, res) {
                 (parseFloat(row.resultAmount) / (entryPrice * row.leverage)) * 100 : 0;
 
             return {
-                id: String(row.id),
+                id: String(row._id || row.id),
                 userId: String(row.userId),
                 symbol: row.asset, // Map 'asset' to 'symbol'
                 type: row.type,
@@ -123,8 +118,7 @@ export async function updateTrade(req, res) {
         }
 
         // Fetch trade to get current data
-        const [tradeRows] = await db.query('SELECT * FROM trades WHERE id = ? LIMIT 1', [id]);
-        const trade = tradeRows[0];
+        const trade = await db.collection('trades').findOne({ _id: id });
         if (!trade) {
             console.log(`UpdateTrade: Trade not found for id=${id}`);
             return res.status(404).json({ message: 'Trade not found' });
@@ -178,15 +172,7 @@ export async function updateTrade(req, res) {
         }
 
         // Update trade record - map frontend fields to database fields
-        // Convert ISO datetime to MySQL format (YYYY-MM-DD HH:MM:SS)
-        let closedAtValue = trade.closedAt;
-        if (closedAt) {
-            // If closedAt is provided from frontend, convert it to MySQL format
-            closedAtValue = closedAt.slice(0, 19).replace('T', ' ');
-        } else if (status === 'closed') {
-            // If closing now, create new timestamp in MySQL format
-            closedAtValue = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        }
+        const closedAtValue = closedAt ? new Date(closedAt) : (status === 'closed' ? new Date() : trade.closedAt);
 
         const updates = {
             status,
@@ -204,16 +190,12 @@ export async function updateTrade(req, res) {
             return res.status(400).json({ message: 'Invalid trade data - profit/loss calculation failed' });
         }
 
-        const updateKeys = Object.keys(updates);
-        const updateValues = Object.values(updates);
-        const setClause = updateKeys.map(k => `${k} = ?`).join(", ");
-
-        const [updateResult] = await db.query(
-            `UPDATE trades SET ${setClause} WHERE id = ?`,
-            [...updateValues, id]
+        const updateResult = await db.collection('trades').updateOne(
+            { _id: id },
+            { $set: updates }
         );
 
-        console.log('UpdateTrade SQL result:', updateResult);
+        console.log('UpdateTrade result:', updateResult);
 
         return res.json({ success: true });
     } catch (e) {

@@ -175,24 +175,17 @@ export async function getNotifications(req, res) {
             return res.status(500).json({ message: 'Database not connected' });
         }
 
-        const userId = req.user.id;
-        let sql = 'SELECT * FROM notifications WHERE userId = ?';
-        const params = [userId];
+        const userId = req.user.id || req.user._id;
+        const filter = { userId };
 
         if (req.query.unreadOnly === 'true') {
-            sql += ' AND `read` = 0';
+            filter.read = 0;
         }
         
-        sql += ' ORDER BY createdAt DESC';
-        // console.log('SQL:', sql)
-        // console.log('Params:', params)
-
-        const [rows] = await db.query(sql, params);
-
-        console.log('SQL:', sql)
-        console.log('Params:', params)
-
-        const notifications = rows;
+        const notifications = await db.collection('notifications')
+            .find(filter)
+            .sort({ createdAt: -1 })
+            .toArray();
 
         return res.json({
             notifications,
@@ -221,14 +214,14 @@ export async function markNotificationAsRead(req, res) {
         }
 
         const { notificationId } = req.params;
-        const userId = req.user.id;
+        const userId = req.user.id || req.user._id;
 
-        const [result] = await db.query(
-            'UPDATE notifications SET `read` = 1 WHERE id = ? AND userId = ?',
-            [notificationId, userId]
+        const result = await db.collection('notifications').updateOne(
+            { _id: notificationId, userId },
+            { $set: { read: 1 } }
         );
 
-        if (result.affectedRows === 0) {
+        if (result.matchedCount === 0) {
             return res.status(404).json({ message: 'Notification not found' });
         }
 
@@ -256,46 +249,51 @@ export async function getDashboardStats(req, res) {
             return res.status(500).json({ message: 'Database not connected' });
         }
 
-        const userId = req.user.id;
-        const [userRows] = await db.query(
-            'SELECT balanceUsd, roi FROM users WHERE id = ?',
-            [userId]
+        const userId = req.user.id || req.user._id;
+        const user = await db.collection('users').findOne(
+            { $or: [{ id: userId }, { _id: userId }] },
+            { projection: { balanceUsd: 1, roi: 1 } }
         );
-
-        const user = userRows[0];
         
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const [activeTradesRows] = await db.query(
-            'SELECT COUNT(*) AS activeTrades FROM trades WHERE userId = ? AND status = "active"',
-            [userId]
-        );
+        const activeTrades = await db.collection('trades').countDocuments({
+            userId: userId,
+            status: 'active'
+        });
 
-        const activeTrades = activeTradesRows[0].activeTrades;
+        const activeInvestments = await db.collection('trades').countDocuments({
+            userId: userId,
+            status: 'active'
+        });
 
-        const [activeInvestmentsRows] = await db.query(
-            `SELECT COUNT(*) AS activeInvestments FROM trades WHERE userId = ? AND status = "active"`,
-            [userId]
-        );
-
-        const activeInvestments = activeInvestmentsRows[0].activeInvestments;
-
-        const [monthlyProfitRows] = await db.query(
-            `SELECT SUM(resultAmount) AS monthlyProfit FROM trades WHERE userId = ? AND closedAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
-            [userId]
-        );
-
-        const monthlyProfit = monthlyProfitRows[0].monthlyProfit || 0;
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const monthlyProfitData = await db.collection('trades')
+            .aggregate([
+                {
+                    $match: {
+                        userId: userId,
+                        closedAt: { $gte: thirtyDaysAgo }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        total: { $sum: '$resultAmount' }
+                    }
+                }
+            ])
+            .toArray();
+        
+        const monthlyProfit = monthlyProfitData[0]?.total || 0;
 
         // Last transaction date
-        const [lastTransactionRows] = await db.query(
-            'SELECT MAX(createdAt) AS lastTransactionDate FROM transactions WHERE userId = ?',
-            [userId]
-        );
+        const lastTransaction = await db.collection('transactions')
+            .findOne({ userId }, { sort: { createdAt: -1 } });
 
-        const lastTransactionDate = lastTransactionRows[0].lastTransactionDate;
+        const lastTransactionDate = lastTransaction?.createdAt;
 
         return res.json({
             totalBalance: user.balanceUsd || 0,
@@ -327,7 +325,7 @@ export async function updateUserSettings(req, res) {
             return res.status(500).json({ message: 'Database not connected' });
         }
 
-        const userId = req.user.id;
+        const userId = req.user.id || req.user._id;
         const { currency, country, accountType, notifications } = req.body;
 
         const updates = {};
@@ -340,12 +338,12 @@ export async function updateUserSettings(req, res) {
             return res.status(400).json({ message: 'No valid fields to update' });
         }
 
-        const setClause = Object.keys(updates).map(f => `${f} = ?`).join(', ');
-        const params = [...Object.values(updates), userId];
+        const result = await db.collection('users').updateOne(
+            { $or: [{ id: userId }, { _id: userId }] },
+            { $set: updates }
+        );
 
-        const [result] = await db.query(`UPDATE users SET ${setClause} WHERE id = ?`, params);
-
-        if (result.affectedRows === 0) {
+        if (result.matchedCount === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
 

@@ -21,7 +21,7 @@ export async function listVerifications(req, res) {
             return res.status(500).json({ message: 'Database not connected' });
         }
 
-        const [rows] = await db.query('SELECT * FROM verifications ORDER BY requestedAt DESC');
+        const rows = await db.collection('verifications').find({}).sort({ requestedAt: -1 }).toArray();
         return res.json(rows);
     } catch (e) {
         console.error('List verifications error:', e.stack || e);
@@ -58,30 +58,25 @@ export async function updateVerification(req, res) {
             return res.status(400).json({ message: 'Invalid status' });
         }
 
-        const [verificationRows] = await db.query('SELECT * FROM verifications WHERE id = ? LIMIT 1', [id]);
-        const verification = verificationRows[0];
+        const verification = await db.collection('verifications').findOne({ _id: id });
         if (!verification) return res.status(404).json({ message: 'Verification not found' });
 
         const updates = {
             status,
             adminNotes: reason || '',
-            reviewedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+            reviewedAt: new Date(),
             reviewedBy: req.user?.email || 'admin',
         };
 
-        const updateKeys = Object.keys(updates);
-        const updateValues = Object.values(updates);
-        const setClause = updateKeys.map(k => `${k} = ?`).join(", ");
-
-        await db.query(
-            `UPDATE verifications SET ${setClause} WHERE id = ?`,
-            [...updateValues, id]
+        await db.collection('verifications').updateOne(
+            { _id: id },
+            { $set: updates }
         );
 
         if (status === 'approved' && verification.userId) {
-            await db.query(
-                'UPDATE users SET emailVerified = 1, verificationApprovedAt = ? WHERE id = ?',
-                [new Date().toISOString(), verification.userId]
+            await db.collection('users').updateOne(
+                { $or: [{ id: verification.userId }, { _id: verification.userId }] },
+                { $set: { emailVerified: true, verificationApprovedAt: new Date() } }
             );
         }
 
