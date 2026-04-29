@@ -58,14 +58,16 @@ router.patch('/transactions/:id', async (req, res) => {
     if (!db) return res.status(500).json({ message: 'Database not connected' });
 
     try {
+        const { id } = req.params;
+
         // Check withdrawals collection first (since withdrawals should subtract, not add)
-        const withdrawal = await db.collection('withdrawals').findOne({ _id: req.params.id });
+        const withdrawal = await db.collection('withdrawals').findOne({ $or: [{ _id: id }, { id }] });
         if (withdrawal) {
             return withdrawalsCtrl.updateWithdrawal(req, res);
         }
 
         // Then check deposits collection
-        const deposit = await db.collection('deposits').findOne({ _id: req.params.id });
+        const deposit = await db.collection('deposits').findOne({ $or: [{ _id: id }, { id }] });
         if (deposit) {
             return depositsCtrl.updateDeposit(req, res);
         }

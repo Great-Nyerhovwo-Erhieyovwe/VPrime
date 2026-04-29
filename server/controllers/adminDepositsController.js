@@ -8,7 +8,7 @@
  * - When a deposit is approved, credit the user's balance
  */
 
-import { Deposit, User } from '../models/index.js';
+import { getDb } from '../utils/db.js';
 
 /**
  * List all deposits
@@ -16,24 +16,31 @@ import { Deposit, User } from '../models/index.js';
  */
 export async function listDeposits(req, res) {
     try {
-        const deposits = await Deposit.find({})
-            .populate('userId', 'email firstName lastName currency')
-            .sort({ createdAt: -1 });
+        const db = getDb();
+        const deposits = await db.collection('deposits').find({}).sort({ requestedAt: -1 }).toArray();
 
-        const formattedDeposits = deposits.map((deposit) => ({
-            id: deposit.id,
-            userId: deposit.userId.id || deposit.userId,
-            userEmail: deposit.userId.email,
-            firstName: deposit.userId.firstName,
-            lastName: deposit.userId.lastName,
-            amount: deposit.amount,
-            paymentMethod: deposit.paymentMethod,
-            status: deposit.status === 'completed' ? 'approved' : deposit.status === 'failed' ? 'rejected' : deposit.status,
-            requestedAt: deposit.requestedAt,
-            approvedAt: deposit.approvedAt,
-            adminNotes: deposit.adminNotes,
-            currency: deposit.userId.currency || 'USD',
-            method: deposit.paymentMethod,
+        // Get user info for each deposit
+        const formattedDeposits = await Promise.all(deposits.map(async (deposit) => {
+            const user = await db.collection('users').findOne(
+                { $or: [{ id: deposit.userId }, { _id: deposit.userId }] },
+                { projection: { email: 1, firstName: 1, lastName: 1, currency: 1 } }
+            );
+
+            return {
+                id: deposit._id || deposit.id,
+                userId: deposit.userId,
+                userEmail: user?.email || 'Unknown',
+                firstName: user?.firstName || '',
+                lastName: user?.lastName || '',
+                amount: deposit.amount,
+                paymentMethod: deposit.paymentMethod,
+                status: deposit.status === 'completed' ? 'approved' : deposit.status === 'failed' ? 'rejected' : deposit.status,
+                requestedAt: deposit.requestedAt,
+                approvedAt: deposit.approvedAt,
+                adminNotes: deposit.adminNotes,
+                currency: user?.currency || 'USD',
+                method: deposit.paymentMethod,
+            };
         }));
 
         console.log(`ListDeposits: Found ${formattedDeposits.length} deposits from database`);
@@ -57,9 +64,10 @@ export async function listDeposits(req, res) {
  */
 export async function updateDeposit(req, res) {
     try {
+        const db = getDb();
         const { id } = req.params;
         const { status, adminNotes } = req.body;
-        const adminId = req.user?.id || req.admin?.id; // Assuming admin auth middleware sets this
+        const adminId = req.user?.id || req.admin?.id;
 
         console.log(`UpdateDeposit: id=${id}, status=${status}, notes=${adminNotes}`);
 
@@ -69,7 +77,7 @@ export async function updateDeposit(req, res) {
         }
 
         // Find deposit
-        const deposit = await Deposit.findOne({ id });
+        const deposit = await db.collection('deposits').findOne({ $or: [{ _id: id }, { id }] });
         if (!deposit) {
             console.log(`UpdateDeposit: Deposit not found for id=${id}`);
             return res.status(404).json({ message: 'Deposit not found' });
@@ -78,19 +86,30 @@ export async function updateDeposit(req, res) {
         console.log(`UpdateDeposit: Found deposit:`, deposit);
 
         // Update deposit status
+        const updateData = {
+            status: status === 'approved' ? 'completed' : status === 'rejected' ? 'failed' : status,
+            adminNotes: adminNotes || '',
+            reviewedBy: adminId,
+        };
+
         if (status === 'approved') {
-            await deposit.approve(adminId, adminNotes);
+            updateData.approvedAt = new Date();
 
             // Credit user balance
-            const user = await User.findOne({ id: deposit.userId });
+            const user = await db.collection('users').findOne({ $or: [{ id: deposit.userId }, { _id: deposit.userId }] });
             if (user) {
-                user.balanceUsd = (user.balanceUsd || 0) + deposit.amount;
-                await user.save();
+                await db.collection('users').updateOne(
+                    { $or: [{ id: deposit.userId }, { _id: deposit.userId }] },
+                    { $inc: { balanceUsd: deposit.amount } }
+                );
                 console.log(`UpdateDeposit: Credited ${deposit.amount} to user ${deposit.userId}`);
             }
-        } else if (status === 'rejected') {
-            await deposit.reject(adminId, adminNotes);
         }
+
+        await db.collection('deposits').updateOne(
+            { $or: [{ _id: id }, { id }] },
+            { $set: updateData }
+        );
 
         console.log(`UpdateDeposit: Success for id=${id}`);
         return res.json({ success: true });

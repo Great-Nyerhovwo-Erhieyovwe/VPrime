@@ -272,18 +272,12 @@ export async function sendEmail(req, res) {
             status: 'sent',
         };
 
-        // Try to insert into email_logs table, but don't fail if it doesn't exist
+        // Try to insert into email_logs collection, but don't fail if it doesn't exist
         try {
-            const keys = Object.keys(emailLog);
-            const values = Object.values(emailLog);
-            const placeholders = keys.map(() => "?").join(", ");
-
-            await db.query(
-                `INSERT INTO email_logs (${keys.join(", ")}) VALUES (${placeholders})`,
-                values
-            );
+            const db = getDb();
+            await db.collection('email_logs').insertOne(emailLog);
         } catch (e) {
-            // Table might not exist, log but don't fail
+            // Collection might not exist, log but don't fail
             console.warn('Email logging not available:', e.message);
         }
 

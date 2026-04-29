@@ -8,7 +8,7 @@
  * - When a withdrawal is approved, debit the user's balance
  */
 
-import { Withdraw, User } from '../models/index.js';
+import { getDb } from '../utils/db.js';
 
 /**
  * List all withdrawals
@@ -16,26 +16,33 @@ import { Withdraw, User } from '../models/index.js';
  */
 export async function listWithdrawals(req, res) {
     try {
-        const withdrawals = await Withdraw.find({})
-            .populate('userId', 'email firstName lastName currency')
-            .sort({ createdAt: -1 });
+        const db = getDb();
+        const withdrawals = await db.collection('withdrawals').find({}).sort({ requestedAt: -1 }).toArray();
 
-        const formattedWithdrawals = withdrawals.map((withdrawal) => ({
-            id: withdrawal.id,
-            userId: withdrawal.userId.id || withdrawal.userId,
-            userEmail: withdrawal.userId.email,
-            firstName: withdrawal.userId.firstName,
-            lastName: withdrawal.userId.lastName,
-            amount: withdrawal.amount,
-            withdrawalMethod: withdrawal.withdrawalMethod,
-            destinationAddress: withdrawal.destinationAddress,
-            status: withdrawal.status === 'completed' ? 'approved' : withdrawal.status === 'failed' ? 'rejected' : withdrawal.status,
-            requestedAt: withdrawal.requestedAt,
-            approvedAt: withdrawal.approvedAt,
-            processedAt: withdrawal.processedAt,
-            adminNotes: withdrawal.adminNotes,
-            currency: withdrawal.userId.currency || 'USD',
-            method: withdrawal.withdrawalMethod,
+        // Get user info for each withdrawal
+        const formattedWithdrawals = await Promise.all(withdrawals.map(async (withdrawal) => {
+            const user = await db.collection('users').findOne(
+                { $or: [{ id: withdrawal.userId }, { _id: withdrawal.userId }] },
+                { projection: { email: 1, firstName: 1, lastName: 1, currency: 1 } }
+            );
+
+            return {
+                id: withdrawal._id || withdrawal.id,
+                userId: withdrawal.userId,
+                userEmail: user?.email || 'Unknown',
+                firstName: user?.firstName || '',
+                lastName: user?.lastName || '',
+                amount: withdrawal.amount,
+                withdrawalMethod: withdrawal.withdrawalMethod,
+                destinationAddress: withdrawal.destinationAddress,
+                status: withdrawal.status === 'completed' ? 'approved' : withdrawal.status === 'failed' ? 'rejected' : withdrawal.status,
+                requestedAt: withdrawal.requestedAt,
+                approvedAt: withdrawal.approvedAt,
+                processedAt: withdrawal.processedAt,
+                adminNotes: withdrawal.adminNotes,
+                currency: user?.currency || 'USD',
+                method: withdrawal.withdrawalMethod,
+            };
         }));
 
         console.log(`ListWithdrawals: Found ${formattedWithdrawals.length} withdrawals from database`);
@@ -59,9 +66,10 @@ export async function listWithdrawals(req, res) {
  */
 export async function updateWithdrawal(req, res) {
     try {
+        const db = getDb();
         const { id } = req.params;
         const { status, adminNotes } = req.body;
-        const adminId = req.user?.id || req.admin?.id; // Assuming admin auth middleware sets this
+        const adminId = req.user?.id || req.admin?.id;
 
         console.log(`UpdateWithdrawal: id=${id}, status=${status}, notes=${adminNotes}`);
 
@@ -71,7 +79,7 @@ export async function updateWithdrawal(req, res) {
         }
 
         // Find withdrawal
-        const withdrawal = await Withdraw.findOne({ id });
+        const withdrawal = await db.collection('withdrawals').findOne({ $or: [{ _id: id }, { id }] });
         if (!withdrawal) {
             console.log(`UpdateWithdrawal: Withdrawal not found for id=${id}`);
             return res.status(404).json({ message: 'Withdrawal not found' });
@@ -81,7 +89,7 @@ export async function updateWithdrawal(req, res) {
 
         // If approving, check sufficient funds
         if (status === 'approved') {
-            const user = await User.findOne({ id: withdrawal.userId });
+            const user = await db.collection('users').findOne({ $or: [{ id: withdrawal.userId }, { _id: withdrawal.userId }] });
             const amountToDebit = Math.abs(withdrawal.amount);
 
             if (!user || user.balanceUsd < amountToDebit) {
@@ -89,12 +97,34 @@ export async function updateWithdrawal(req, res) {
             }
 
             // Approve and debit balance
-            await withdrawal.approve(adminId, adminNotes);
-            user.balanceUsd -= amountToDebit;
-            await user.save();
+            const updateData = {
+                status: 'completed',
+                adminNotes: adminNotes || '',
+                approvedAt: new Date(),
+                processedAt: new Date(),
+                reviewedBy: adminId,
+            };
+
+            await db.collection('withdrawals').updateOne(
+                { $or: [{ _id: id }, { id }] },
+                { $set: updateData }
+            );
+
+            await db.collection('users').updateOne(
+                { $or: [{ id: withdrawal.userId }, { _id: withdrawal.userId }] },
+                { $inc: { balanceUsd: -amountToDebit } }
+            );
+
             console.log(`UpdateWithdrawal: Debited ${amountToDebit} from user ${withdrawal.userId}`);
         } else if (status === 'rejected') {
-            await withdrawal.reject(adminId, adminNotes);
+            await db.collection('withdrawals').updateOne(
+                { $or: [{ _id: id }, { id }] },
+                { $set: {
+                    status: 'failed',
+                    adminNotes: adminNotes || '',
+                    reviewedBy: adminId,
+                }}
+            );
         }
 
         console.log(`UpdateWithdrawal: Success for id=${id}`);

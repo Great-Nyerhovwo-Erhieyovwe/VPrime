@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 let db = null;
+let client = null;
 
 /**
  * Get MongoDB database instance
@@ -14,6 +15,17 @@ export function getDb() {
 }
 
 /**
+ * Get MongoDB client instance (for sessions)
+ * @returns {Object} MongoDB client instance
+ */
+export function getClient() {
+  if (!client) {
+    throw new Error('Database not connected');
+  }
+  return client;
+}
+
+/**
  * Connect to MongoDB
  * @param {string} uri - MongoDB connection URI
  * @returns {Promise<Object>} Database instance
@@ -22,6 +34,7 @@ export async function connectDb(uri) {
   try {
     await mongoose.connect(uri);
     db = mongoose.connection.db;
+    client = mongoose.connection.getClient();
     console.log('✅ Connected to MongoDB');
     return db;
   } catch (error) {
@@ -36,4 +49,5 @@ export async function connectDb(uri) {
 export async function closeDb() {
   await mongoose.connection.close();
   db = null;
+  client = null;
 }
